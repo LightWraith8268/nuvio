@@ -6,6 +6,7 @@
  */
 
 import type { Address } from '@/types';
+import { quoteApi } from './api-clients/calendar-api';
 
 export interface TaxRate {
   rate: number; // e.g., 0.08 for 8%
@@ -53,7 +54,25 @@ class TaxCalculatorService {
    */
   async calculateTax(address: Address, subtotal: number): Promise<TaxCalculation> {
     try {
-      // Try external API first if configured
+      // Try Supabase tax-lookup API first
+      try {
+        const response = await quoteApi.lookupTax(address, subtotal);
+        const { taxAmount, taxRate, total } = response.data;
+
+        return {
+          subtotal,
+          taxAmount,
+          taxRate,
+          total,
+          breakdown: {
+            state: taxRate, // API provides combined rate
+          },
+        };
+      } catch (apiError) {
+        console.warn('Supabase tax-lookup failed, trying fallback:', apiError);
+      }
+
+      // Try external API if configured
       if (this.taxApiUrl && this.taxApiKey) {
         return await this.calculateTaxFromAPI(address, subtotal);
       }

@@ -3,6 +3,9 @@
 
 import type { Client, Order, LineItem, SavedCard, Product, Employee } from '@/types';
 import { DEFAULT_PERMISSIONS } from '@/types';
+import { deliveryCalculator } from '@/services/delivery-calculator';
+import { taxCalculator } from '@/services/tax-calculator';
+import { calendarService } from '@/services/calendar-service';
 
 class MockInvoissAPI {
   private clients: Map<string, Client> = new Map();
@@ -232,8 +235,53 @@ class MockInvoissAPI {
       (sum, item) => sum + (item.price * item.quantity),
       0
     );
-    const taxTotal = subTotal * 0.08; // 8% tax
-    const grandTotal = subTotal + taxTotal;
+
+    // Calculate delivery fee if this is a delivery order
+    let deliveryFee = 0;
+    if (data.type === 'ORDER' && data.metadata?.delivery?.address) {
+      try {
+        const deliveryCalc = await deliveryCalculator.calculateDeliveryFee(
+          data.metadata.delivery.address,
+          subTotal
+        );
+        deliveryFee = deliveryCalc.fee;
+
+        // Store delivery details in metadata
+        data.metadata.delivery = {
+          ...data.metadata.delivery,
+          fee: deliveryFee,
+          freeDelivery: deliveryCalc.freeDelivery,
+          zone: deliveryCalc.zone,
+          distance: deliveryCalc.distance,
+        };
+
+        console.log('✓ Delivery fee calculated:', deliveryFee, deliveryCalc);
+      } catch (error) {
+        console.warn('Failed to calculate delivery fee, using default:', error);
+        deliveryFee = 10; // Default delivery fee
+      }
+    }
+
+    // Calculate tax using tax-lookup API
+    let taxTotal = subTotal * 0.08; // Default 8% fallback
+    if (data.type === 'ORDER' && data.metadata?.delivery?.address) {
+      try {
+        const taxCalc = await taxCalculator.calculateTax(
+          data.metadata.delivery.address,
+          subTotal + deliveryFee
+        );
+        taxTotal = taxCalc.taxAmount;
+        console.log('✓ Tax calculated via API:', taxTotal, `(${(taxCalc.taxRate * 100).toFixed(2)}%)`);
+      } catch (error) {
+        console.warn('Failed to calculate tax via API, using default:', error);
+        taxTotal = (subTotal + deliveryFee) * 0.08;
+      }
+    } else {
+      // In-store orders: use default tax
+      taxTotal = subTotal * 0.08;
+    }
+
+    const grandTotal = subTotal + deliveryFee + taxTotal;
 
     const order: Order = {
       id: `order-${Date.now()}`,
@@ -253,6 +301,17 @@ class MockInvoissAPI {
     };
 
     this.orders.set(order.id, order);
+
+    // Create calendar event for delivery orders
+    if (data.type === 'ORDER' && data.metadata?.delivery?.scheduledDate) {
+      calendarService.createDeliveryEvent(order).then(event => {
+        if (event) {
+          // Store calendar event ID in order metadata
+          order.metadata.calendarEventId = event.id;
+        }
+      });
+    }
+
     return order;
   }
 
