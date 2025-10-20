@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, CreditCard, Calendar, MapPin, Search } from 'lucide-react';
+import { X, Plus, Trash2, CreditCard, Calendar, MapPin, Search, DollarSign, AlertCircle } from 'lucide-react';
 import { invoissAPI } from '@/lib/invoiss-api';
-import type { Client, LineItem, SavedCard, Address, Product } from '@/types';
+import PinVerificationModal from '../auth/PinVerificationModal';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Client, LineItem, SavedCard, Address, Product, Employee } from '@/types';
 
 interface NewOrderModalProps {
   onClose: () => void;
@@ -19,12 +21,21 @@ interface LineItemInput {
   unit: 'tons' | 'yard' | 'each';
   quantity: number;
   pricePerUnit: number;
+  originalPrice?: number; // Price before override
+  priceOverride?: {
+    overriddenBy: string; // Employee ID who approved
+    reason: 'manager_approval' | 'special_customer' | 'damaged_goods' | 'promotion' | 'other';
+    reasonNote?: string;
+    overriddenAt: string;
+  };
   // Weight fields for tons
   tareWeight?: number;
   grossWeight?: number;
 }
 
 export default function NewOrderModal({ onClose, onSuccess, preselectedClient }: NewOrderModalProps) {
+  const { currentEmployee } = useAuth();
+
   // If preselectedClient is provided, skip to order type selection, otherwise start at type
   const [step, setStep] = useState<'type' | 'client' | 'items' | 'delivery' | 'review'>(
     preselectedClient ? 'type' : 'type'
@@ -64,6 +75,14 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
   });
 
   const [saving, setSaving] = useState(false);
+
+  // Price override modal state
+  const [showPriceOverrideModal, setShowPriceOverrideModal] = useState(false);
+  const [overrideItemId, setOverrideItemId] = useState<string | null>(null);
+  const [overridePrice, setOverridePrice] = useState('');
+  const [overrideReason, setOverrideReason] = useState<'manager_approval' | 'special_customer' | 'damaged_goods' | 'promotion' | 'other'>('manager_approval');
+  const [overrideReasonNote, setOverrideReasonNote] = useState('');
+  const [showPinVerification, setShowPinVerification] = useState(false);
 
   useEffect(() => {
     loadClients();
@@ -175,6 +194,67 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
     }));
   }
 
+  // Price override handlers
+  function openPriceOverride(itemId: string) {
+    const item = lineItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    setOverrideItemId(itemId);
+    setOverridePrice(item.pricePerUnit.toString());
+    setOverrideReason('manager_approval');
+    setOverrideReasonNote('');
+    setShowPriceOverrideModal(true);
+  }
+
+  function handleOverridePriceSubmit() {
+    const newPrice = parseFloat(overridePrice);
+
+    if (isNaN(newPrice) || newPrice < 0) {
+      alert('Please enter a valid price');
+      return;
+    }
+
+    // Close price entry modal, open PIN verification
+    setShowPriceOverrideModal(false);
+    setShowPinVerification(true);
+  }
+
+  function handlePinVerificationSuccess(authorizedEmployee: Employee) {
+    if (!overrideItemId) return;
+
+    const newPrice = parseFloat(overridePrice);
+    const item = lineItems.find(i => i.id === overrideItemId);
+    if (!item) return;
+
+    // Update line item with price override
+    updateLineItem(overrideItemId, {
+      originalPrice: item.originalPrice || item.pricePerUnit, // Preserve original if already overridden
+      pricePerUnit: newPrice,
+      priceOverride: {
+        overriddenBy: authorizedEmployee.id,
+        reason: overrideReason,
+        reasonNote: overrideReasonNote || undefined,
+        overriddenAt: new Date().toISOString()
+      }
+    });
+
+    // Reset state
+    setShowPinVerification(false);
+    setOverrideItemId(null);
+    setOverridePrice('');
+    setOverrideReason('manager_approval');
+    setOverrideReasonNote('');
+  }
+
+  function cancelPriceOverride() {
+    setShowPriceOverrideModal(false);
+    setShowPinVerification(false);
+    setOverrideItemId(null);
+    setOverridePrice('');
+    setOverrideReason('manager_approval');
+    setOverrideReasonNote('');
+  }
+
   function calculateSubtotal(): number {
     return lineItems.reduce((sum, item) => sum + (item.quantity * item.pricePerUnit), 0);
   }
@@ -210,7 +290,9 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
           description: item.description,
           quantity: item.quantity,
           unit: item.unit,
-          pricePerUnit: item.pricePerUnit,
+          price: item.pricePerUnit,
+          originalPrice: item.originalPrice,
+          priceOverride: item.priceOverride,
           total: item.quantity * item.pricePerUnit,
           metadata: item.unit === 'tons' ? {
             tareWeight: item.tareWeight,
@@ -524,10 +606,32 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-700">Price per {item.unit}</label>
-                          <div className="mt-1 flex items-center text-sm font-medium text-gray-900">
-                            ${item.pricePerUnit.toFixed(2)}
-                            <span className="text-xs text-gray-500 ml-2">/{item.unit}</span>
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="flex items-center text-sm font-medium text-gray-900">
+                              ${item.pricePerUnit.toFixed(2)}
+                              <span className="text-xs text-gray-500 ml-2">/{item.unit}</span>
+                            </div>
+                            <button
+                              onClick={() => openPriceOverride(item.id)}
+                              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                              title="Override price (requires manager approval)"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                            </button>
                           </div>
+                          {item.priceOverride && (
+                            <div className="mt-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-yellow-600" />
+                              <span className="text-xs text-yellow-700">
+                                Price overridden
+                                {item.originalPrice && (
+                                  <span className="ml-1 line-through text-gray-500">
+                                    ${item.originalPrice.toFixed(2)}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <div></div>
@@ -923,6 +1027,110 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
           )}
         </div>
       </div>
+
+      {/* Price Override Modal */}
+      {showPriceOverrideModal && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center">
+                <DollarSign className="w-6 h-6 text-blue-600 mr-2" />
+                <h3 className="text-lg font-medium text-gray-900">Override Price</h3>
+              </div>
+              <button onClick={cancelPriceOverride} className="text-gray-400 hover:text-gray-500">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                <p className="text-sm text-yellow-800">
+                  This action requires manager or admin authorization with PIN verification.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="newPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                  New Price per Unit
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    id="newPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={overridePrice}
+                    onChange={(e) => setOverridePrice(e.target.value)}
+                    className="block w-full pl-7 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    placeholder="0.00"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason for Override
+                </label>
+                <select
+                  id="reason"
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value as any)}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                >
+                  <option value="manager_approval">Manager Approval</option>
+                  <option value="special_customer">Special Customer</option>
+                  <option value="damaged_goods">Damaged Goods</option>
+                  <option value="promotion">Promotion</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="reasonNote" className="block text-sm font-medium text-gray-700 mb-1">
+                  Additional Note (Optional)
+                </label>
+                <textarea
+                  id="reasonNote"
+                  rows={2}
+                  value={overrideReasonNote}
+                  onChange={(e) => setOverrideReasonNote(e.target.value)}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  placeholder="Enter additional explanation if needed..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={cancelPriceOverride}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOverridePriceSubmit}
+                  className="flex-1 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90"
+                >
+                  Continue to Authorization
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PIN Verification Modal */}
+      {showPinVerification && (
+        <PinVerificationModal
+          onClose={cancelPriceOverride}
+          onSuccess={handlePinVerificationSuccess}
+          operation="Price Override"
+          requireRole="manager"
+        />
+      )}
     </div>
   );
 }
