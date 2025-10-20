@@ -12,10 +12,11 @@ import type { Address } from '@/types';
 
 export interface DeliveryFeeCalculation {
   fee: number;
-  zone?: string;
+  zone?: number;
   distance?: number;
   duration?: number;
   freeDelivery: boolean;
+  vehicleType?: 'trailer' | 'tandem';
   breakdown: {
     baseFee: number;
     distanceFee: number;
@@ -112,60 +113,56 @@ class DeliveryCalculatorService {
   }
 
   /**
-   * Calculate using zone-lookup and calculate-distance
+   * Calculate using zone-lookup API
+   * The zone-lookup API returns comprehensive data including:
+   * - Zone number (1-12)
+   * - Distance from Windsor hub
+   * - Fees object with trailer and tandem prices
+   * - Tax info with rate and jurisdiction
    */
   private async calculateWithZoneAndDistance(
     deliveryAddress: Address
   ): Promise<DeliveryFeeCalculation | null> {
     try {
-      // Get zone information and distance in parallel
-      const [zoneResponse, distanceResponse] = await Promise.all([
-        deliveryApi.lookupZone(deliveryAddress).catch(() => null),
-        deliveryApi.calculateDistance(this.storeAddress, deliveryAddress).catch(() => null),
-      ]);
+      // Get zone information from API
+      const zoneResponse = await deliveryApi.lookupZone(deliveryAddress);
 
-      const zone = zoneResponse?.data?.zone;
-      const distance = distanceResponse?.data?.distance;
-      const duration = distanceResponse?.data?.duration;
-
-      // Calculate fee based on distance
-      let distanceFee = 0;
-      let zoneFee = 0;
-
-      if (distance) {
-        // $0.50 per mile after first 5 miles
-        const chargeable = Math.max(0, distance - 5);
-        distanceFee = chargeable * 0.5;
+      if (!zoneResponse?.data) {
+        console.warn('No zone data returned from API');
+        return null;
       }
 
-      // Zone-based surcharge
-      if (zone) {
-        const zoneSurcharges: Record<string, number> = {
-          'zone-1': 0,
-          'zone-2': 5,
-          'zone-3': 10,
-          'zone-4': 15,
-        };
-        zoneFee = zoneSurcharges[zone.toLowerCase()] || 0;
+      const { zone, distance, fees } = zoneResponse.data;
+
+      if (!fees || (!fees.trailer && !fees.tandem)) {
+        console.warn('No fee information in zone lookup response');
+        return null;
       }
 
-      const total = this.BASE_FEE + distanceFee + zoneFee;
+      // Determine vehicle type based on order characteristics
+      // For now, default to trailer (cheaper option)
+      // TODO: Add logic to determine vehicle type based on:
+      // - Order weight
+      // - Item types (mulch, soil, rock, etc.)
+      // - Customer preference
+      const vehicleType: 'trailer' | 'tandem' = 'trailer';
+      const deliveryFee = vehicleType === 'trailer' ? fees.trailer : fees.tandem;
 
       return {
-        fee: total,
+        fee: deliveryFee,
         zone,
         distance,
-        duration,
         freeDelivery: false,
+        vehicleType,
         breakdown: {
-          baseFee: this.BASE_FEE,
-          distanceFee,
-          zoneFee,
-          total,
+          baseFee: deliveryFee, // Zone fee is the complete fee
+          distanceFee: 0, // Already included in zone fee
+          zoneFee: 0, // Already included in base fee
+          total: deliveryFee,
         },
       };
     } catch (error) {
-      console.warn('Zone/distance calculation failed:', error);
+      console.warn('Zone lookup failed:', error);
       return null;
     }
   }

@@ -181,11 +181,21 @@ export class DeliveryApiClient extends BaseApiClient {
 
   /**
    * Look up delivery zone for address
+   * Returns zone info with fees, distance, and tax information
    */
   async lookupZone(address: Address): Promise<ApiResponse<{
-    zone: string;
-    deliveryDays: string[];
-    cutoffTime: string;
+    address: string; // Formatted address from Google Maps
+    coordinates: { lat: number; lng: number };
+    distance: number; // Miles from Windsor hub
+    zone: number; // Zone number (1-12)
+    fees: {
+      trailer: number; // Trailer delivery fee for this zone
+      tandem: number; // Tandem truck delivery fee for this zone
+    };
+    taxInfo: {
+      rate: number; // Tax rate percentage (e.g., 2.9 for Colorado)
+      jurisdiction: string; // Tax jurisdiction (e.g., "Colorado")
+    };
   }>> {
     return this.post('/zone-lookup', { address });
   }
