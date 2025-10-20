@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Edit2, CreditCard, MapPin, DollarSign, Save, Star, ShieldCheck } from 'lucide-react';
+import { X, Edit2, CreditCard, MapPin, DollarSign, Save, Star, ShieldCheck, Building2 } from 'lucide-react';
 import { invoissAPI } from '@/lib/invoiss-api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Client } from '@/types';
@@ -31,6 +31,19 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
   const [taxExemptIssuingState, setTaxExemptIssuingState] = useState(
     client.taxExemptCertificate?.issuingState || ''
   );
+  const [isCommercial, setIsCommercial] = useState(client.commercialSetup?.isCommercial || false);
+  const [companyName, setCompanyName] = useState(client.commercialSetup?.companyName || '');
+  const [taxId, setTaxId] = useState(client.commercialSetup?.taxId || '');
+  const [creditLimit, setCreditLimit] = useState(
+    client.commercialSetup?.creditLimit?.toString() || ''
+  );
+  const [paymentTerms, setPaymentTerms] = useState<'net_15' | 'net_30' | 'net_60' | 'net_90' | 'due_on_receipt'>(
+    client.commercialSetup?.paymentTerms || 'net_30'
+  );
+  const [commercialPriceBook, setCommercialPriceBook] = useState(
+    client.commercialSetup?.commercialPriceBook || ''
+  );
+  const [accountManager, setAccountManager] = useState(client.commercialSetup?.accountManager || '');
   const [billingAddress, setBillingAddress] = useState({
     street: client.billing?.street || '',
     city: client.billing?.city || '',
@@ -63,6 +76,19 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
           }
         : undefined;
 
+      // Build commercial setup if applicable
+      const commercialSetup = isCommercial
+        ? {
+            isCommercial: true,
+            companyName,
+            taxId,
+            creditLimit: creditLimit ? parseFloat(creditLimit) : undefined,
+            paymentTerms,
+            commercialPriceBook: commercialPriceBook || undefined,
+            accountManager: accountManager || undefined
+          }
+        : undefined;
+
       const updatedClient = await invoissAPI.updateClient(client.id, {
         name,
         email,
@@ -71,7 +97,8 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
         billing: billingAddress,
         shipping: shippingAddress,
         isTaxExempt,
-        taxExemptCertificate
+        taxExemptCertificate,
+        commercialSetup
       });
 
       onUpdate(updatedClient);
@@ -93,6 +120,13 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
     setTaxExemptCertificateNumber(client.taxExemptCertificate?.number || '');
     setTaxExemptExpirationDate(client.taxExemptCertificate?.expirationDate || '');
     setTaxExemptIssuingState(client.taxExemptCertificate?.issuingState || '');
+    setIsCommercial(client.commercialSetup?.isCommercial || false);
+    setCompanyName(client.commercialSetup?.companyName || '');
+    setTaxId(client.commercialSetup?.taxId || '');
+    setCreditLimit(client.commercialSetup?.creditLimit?.toString() || '');
+    setPaymentTerms(client.commercialSetup?.paymentTerms || 'net_30');
+    setCommercialPriceBook(client.commercialSetup?.commercialPriceBook || '');
+    setAccountManager(client.commercialSetup?.accountManager || '');
     setBillingAddress({
       street: client.billing?.street || '',
       city: client.billing?.city || '',
@@ -373,6 +407,173 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
                   </div>
                 ) : (
                   <p className="text-gray-500">Not tax exempt</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Commercial Setup */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+              <Building2 className="w-4 h-4" />
+              Commercial Account
+            </h4>
+
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isCommercial"
+                    checked={isCommercial}
+                    onChange={(e) => setIsCommercial(e.target.checked)}
+                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  />
+                  <label htmlFor="isCommercial" className="ml-2 block text-sm font-medium text-gray-700">
+                    Commercial Account
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 ml-6">
+                  Mark this client as a commercial account with special pricing and terms
+                </p>
+
+                {isCommercial && (
+                  <div className="ml-6 space-y-3 p-3 bg-gray-50 rounded border border-gray-200">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Company Name (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        placeholder="e.g., ABC Construction Inc."
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Tax ID (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={taxId}
+                          onChange={(e) => setTaxId(e.target.value)}
+                          placeholder="e.g., 12-3456789"
+                          className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Credit Limit (Optional)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={creditLimit}
+                          onChange={(e) => setCreditLimit(e.target.value)}
+                          placeholder="e.g., 10000.00"
+                          className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Payment Terms
+                        </label>
+                        <select
+                          value={paymentTerms}
+                          onChange={(e) => setPaymentTerms(e.target.value as any)}
+                          className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                        >
+                          <option value="due_on_receipt">Due on Receipt</option>
+                          <option value="net_15">Net 15</option>
+                          <option value="net_30">Net 30</option>
+                          <option value="net_60">Net 60</option>
+                          <option value="net_90">Net 90</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Commercial Price Book (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={commercialPriceBook}
+                          onChange={(e) => setCommercialPriceBook(e.target.value)}
+                          placeholder="e.g., commercial-tier-1"
+                          className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Account Manager (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={accountManager}
+                        onChange={(e) => setAccountManager(e.target.value)}
+                        placeholder="e.g., John Smith"
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                {client.commercialSetup?.isCommercial ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded font-medium flex items-center gap-1">
+                        <Building2 className="w-4 h-4" />
+                        Commercial Account
+                      </span>
+                    </div>
+                    <div className="ml-6 text-sm space-y-1">
+                      {client.commercialSetup.companyName && (
+                        <p className="text-gray-700">
+                          <span className="font-medium">Company:</span> {client.commercialSetup.companyName}
+                        </p>
+                      )}
+                      {client.commercialSetup.taxId && (
+                        <p className="text-gray-700">
+                          <span className="font-medium">Tax ID:</span> {client.commercialSetup.taxId}
+                        </p>
+                      )}
+                      {client.commercialSetup.creditLimit && (
+                        <p className="text-gray-700">
+                          <span className="font-medium">Credit Limit:</span> ${client.commercialSetup.creditLimit.toFixed(2)}
+                        </p>
+                      )}
+                      {client.commercialSetup.paymentTerms && (
+                        <p className="text-gray-700">
+                          <span className="font-medium">Payment Terms:</span>{' '}
+                          {client.commercialSetup.paymentTerms.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </p>
+                      )}
+                      {client.commercialSetup.commercialPriceBook && (
+                        <p className="text-gray-700">
+                          <span className="font-medium">Price Book:</span> {client.commercialSetup.commercialPriceBook}
+                        </p>
+                      )}
+                      {client.commercialSetup.accountManager && (
+                        <p className="text-gray-700">
+                          <span className="font-medium">Account Manager:</span> {client.commercialSetup.accountManager}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Not a commercial account</p>
                 )}
               </div>
             )}

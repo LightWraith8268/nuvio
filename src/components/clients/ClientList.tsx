@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, CreditCard, MapPin, Phone, Mail, ShieldCheck } from 'lucide-react';
+import { Search, Plus, CreditCard, MapPin, Phone, Mail, ShieldCheck, Building2 } from 'lucide-react';
 import { invoissAPI } from '@/lib/invoiss-api';
 import ClientDetailModal from './ClientDetailModal';
 import type { Client } from '@/types';
@@ -180,6 +180,12 @@ export default function ClientList() {
                               Tax Exempt
                             </span>
                           )}
+                          {client.commercialSetup?.isCommercial && (
+                            <span className="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded font-medium flex items-center gap-1">
+                              <Building2 className="w-3 h-3" />
+                              Commercial
+                            </span>
+                          )}
                         </div>
                         {client.hasCardOnFile && (
                           <div className="ml-2 flex-shrink-0 flex">
@@ -269,7 +275,14 @@ export function NewClientModal({ onClose, onSuccess }: { onClose: () => void; on
     isTaxExempt: false,
     taxExemptCertificateNumber: '',
     taxExemptExpirationDate: '',
-    taxExemptIssuingState: ''
+    taxExemptIssuingState: '',
+    isCommercial: false,
+    companyName: '',
+    taxId: '',
+    creditLimit: '',
+    paymentTerms: 'net_30' as 'net_15' | 'net_30' | 'net_60' | 'net_90' | 'due_on_receipt',
+    commercialPriceBook: '',
+    accountManager: ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -294,6 +307,19 @@ export function NewClientModal({ onClose, onSuccess }: { onClose: () => void; on
           }
         : undefined;
 
+      // Build commercial setup if applicable
+      const commercialSetup = formData.isCommercial
+        ? {
+            isCommercial: true,
+            companyName: formData.companyName,
+            taxId: formData.taxId,
+            creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : undefined,
+            paymentTerms: formData.paymentTerms,
+            commercialPriceBook: formData.commercialPriceBook || undefined,
+            accountManager: formData.accountManager || undefined
+          }
+        : undefined;
+
       await invoissAPI.createClient({
         name: formData.name,
         email: formData.email,
@@ -301,7 +327,8 @@ export function NewClientModal({ onClose, onSuccess }: { onClose: () => void; on
         priceBook: formData.priceBook,
         addresses,
         isTaxExempt: formData.isTaxExempt,
-        taxExemptCertificate
+        taxExemptCertificate,
+        commercialSetup
       });
 
       onSuccess();
@@ -465,6 +492,115 @@ export function NewClientModal({ onClose, onSuccess }: { onClose: () => void; on
                 className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
               />
             </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="isCommercial"
+                checked={formData.isCommercial}
+                onChange={(e) => setFormData({ ...formData, isCommercial: e.target.checked })}
+                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+              />
+              <label htmlFor="isCommercial" className="ml-2 block text-sm font-medium text-gray-700">
+                Commercial Account
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-gray-500 ml-6">
+              Mark this client as a commercial account with special pricing and terms
+            </p>
+
+            {formData.isCommercial && (
+              <div className="mt-4 ml-6 space-y-3 p-3 bg-gray-50 rounded border border-gray-200">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Company Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    placeholder="e.g., ABC Construction Inc."
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Tax ID (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.taxId}
+                      onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                      placeholder="e.g., 12-3456789"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Credit Limit (Optional)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.creditLimit}
+                      onChange={(e) => setFormData({ ...formData, creditLimit: e.target.value })}
+                      placeholder="e.g., 10000.00"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Payment Terms
+                    </label>
+                    <select
+                      value={formData.paymentTerms}
+                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as any })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    >
+                      <option value="due_on_receipt">Due on Receipt</option>
+                      <option value="net_15">Net 15</option>
+                      <option value="net_30">Net 30</option>
+                      <option value="net_60">Net 60</option>
+                      <option value="net_90">Net 90</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Commercial Price Book (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.commercialPriceBook}
+                      onChange={(e) => setFormData({ ...formData, commercialPriceBook: e.target.value })}
+                      placeholder="e.g., commercial-tier-1"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Account Manager (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.accountManager}
+                    onChange={(e) => setFormData({ ...formData, accountManager: e.target.value })}
+                    placeholder="e.g., John Smith"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4">
