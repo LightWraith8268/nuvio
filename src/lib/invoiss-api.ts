@@ -81,7 +81,10 @@ class InvoissAPI {
     }
 
     if (endpoint === 'auth/employee') {
-      return mockInvoissAPI.authenticateEmployee(body.employeeId, body.pin);
+      console.log('Mock API routing auth/employee:', { employeeId: body.employeeId, pin: body.pin });
+      const result = await mockInvoissAPI.authenticateEmployee(body.employeeId, body.pin);
+      console.log('Mock API auth result:', result);
+      return result;
     }
 
     if (endpoint.startsWith('employees')) {
@@ -213,10 +216,17 @@ class InvoissAPI {
 
   // Employee Management
   async authenticateEmployee(employeeId: string, pin?: string): Promise<Employee | null> {
-    return this.fetch('auth/employee', {
-      method: 'POST',
-      body: JSON.stringify({ employeeId, pin }),
-    });
+    try {
+      const result = await this.fetch('auth/employee', {
+        method: 'POST',
+        body: JSON.stringify({ employeeId, pin }),
+      });
+      console.log('API authenticateEmployee result:', result);
+      return result;
+    } catch (error) {
+      console.error('API authenticateEmployee error:', error);
+      return null;
+    }
   }
 
   async listEmployees(): Promise<Employee[]> {
