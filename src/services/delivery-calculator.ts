@@ -35,13 +35,15 @@ class DeliveryCalculatorService {
 
   private readonly FREE_DELIVERY_THRESHOLD = 200; // Free delivery over $200
   private readonly BASE_FEE = 10; // Base delivery fee
+  private readonly TANDEM_WEIGHT_THRESHOLD = 10000; // 10,000 lbs requires tandem truck
 
   /**
    * Calculate delivery fee for an order
    */
   async calculateDeliveryFee(
     deliveryAddress: Address,
-    orderSubtotal: number
+    orderSubtotal: number,
+    orderWeight?: number
   ): Promise<DeliveryFeeCalculation> {
     try {
       // Check if order qualifies for free delivery
@@ -64,8 +66,8 @@ class DeliveryCalculatorService {
         return quote;
       }
 
-      // Fallback: Use zone-lookup + calculate-distance
-      const fallback = await this.calculateWithZoneAndDistance(deliveryAddress);
+      // Fallback: Use zone-lookup
+      const fallback = await this.calculateWithZoneLookup(deliveryAddress, orderWeight);
       if (fallback) {
         return fallback;
       }
@@ -119,9 +121,14 @@ class DeliveryCalculatorService {
    * - Distance from Windsor hub
    * - Fees object with trailer and tandem prices
    * - Tax info with rate and jurisdiction
+   *
+   * Tandem fee is calculated dynamically based on distance:
+   * Formula: max((distance * 2 / 45 + 0.5) * 85 + 30, 115)
+   * This ensures tandem fee increases with distance and has a minimum of $115
    */
-  private async calculateWithZoneAndDistance(
-    deliveryAddress: Address
+  private async calculateWithZoneLookup(
+    deliveryAddress: Address,
+    orderWeight?: number
   ): Promise<DeliveryFeeCalculation | null> {
     try {
       // Get zone information from API
@@ -139,14 +146,20 @@ class DeliveryCalculatorService {
         return null;
       }
 
-      // Determine vehicle type based on order characteristics
-      // For now, default to trailer (cheaper option)
-      // TODO: Add logic to determine vehicle type based on:
-      // - Order weight
-      // - Item types (mulch, soil, rock, etc.)
-      // - Customer preference
-      const vehicleType: 'trailer' | 'tandem' = 'trailer';
+      // Determine vehicle type based on order weight
+      // Tandem trucks are required for orders over 10,000 lbs
+      const vehicleType = this.determineVehicleType(orderWeight);
       const deliveryFee = vehicleType === 'trailer' ? fees.trailer : fees.tandem;
+
+      console.log('Vehicle type determination:', {
+        orderWeight,
+        vehicleType,
+        zone,
+        distance,
+        trailerFee: fees.trailer,
+        tandemFee: fees.tandem,
+        selectedFee: deliveryFee,
+      });
 
       return {
         fee: deliveryFee,
@@ -165,6 +178,33 @@ class DeliveryCalculatorService {
       console.warn('Zone lookup failed:', error);
       return null;
     }
+  }
+
+  /**
+   * Determine vehicle type based on order weight
+   *
+   * Vehicle capacity:
+   * - Trailer: Up to 10,000 lbs (standard loads)
+   * - Tandem: Over 10,000 lbs (heavy loads)
+   *
+   * Common materials and weights:
+   * - Mulch: ~800-1,000 lbs per cubic yard
+   * - Topsoil: ~2,000-2,200 lbs per cubic yard
+   * - River rock: ~2,500-3,000 lbs per cubic yard
+   * - Gravel: ~2,700-3,000 lbs per cubic yard
+   */
+  private determineVehicleType(orderWeight?: number): 'trailer' | 'tandem' {
+    if (!orderWeight || orderWeight === 0) {
+      // Default to trailer if weight not specified
+      return 'trailer';
+    }
+
+    // Tandem truck required for loads over 10,000 lbs
+    if (orderWeight > this.TANDEM_WEIGHT_THRESHOLD) {
+      return 'tandem';
+    }
+
+    return 'trailer';
   }
 
   /**

@@ -240,9 +240,13 @@ class MockInvoissAPI {
     let deliveryFee = 0;
     if (data.type === 'ORDER' && data.metadata?.delivery?.address) {
       try {
+        // Calculate total weight from line items
+        const orderWeight = this.calculateOrderWeight(data.lineItems);
+
         const deliveryCalc = await deliveryCalculator.calculateDeliveryFee(
           data.metadata.delivery.address,
-          subTotal
+          subTotal,
+          orderWeight
         );
         deliveryFee = deliveryCalc.fee;
 
@@ -253,6 +257,8 @@ class MockInvoissAPI {
           freeDelivery: deliveryCalc.freeDelivery,
           zone: deliveryCalc.zone,
           distance: deliveryCalc.distance,
+          vehicleType: deliveryCalc.vehicleType,
+          weight: orderWeight,
         };
 
         console.log('✓ Delivery fee calculated:', deliveryFee, deliveryCalc);
@@ -499,6 +505,30 @@ class MockInvoissAPI {
     const updated = { ...existing, ...data };
     this.employees.set(id, updated);
     return updated;
+  }
+
+  /**
+   * Calculate total weight of an order from line items
+   * Looks up product weights and multiplies by quantity
+   */
+  private calculateOrderWeight(lineItems: LineItem[]): number {
+    let totalWeight = 0;
+
+    for (const item of lineItems) {
+      // Try to find the product to get its weight
+      const product = this.products.get(item.productId || '');
+
+      if (product && product.priceType === 'per_weight') {
+        // For weight-based products, the quantity IS the weight
+        totalWeight += item.quantity;
+      } else if (product && product.metadata?.weight) {
+        // For fixed-price products with weight metadata
+        totalWeight += product.metadata.weight * item.quantity;
+      }
+      // If no weight info available, skip this item (services, etc.)
+    }
+
+    return totalWeight;
   }
 }
 
