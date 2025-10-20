@@ -256,7 +256,11 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
         }
       }
 
-      await invoissAPI.createOrder(orderData);
+      const createdOrder = await invoissAPI.createOrder(orderData);
+
+      // Show success message
+      alert(`Order #${createdOrder.number} created successfully!`);
+
       onSuccess();
     } catch (error) {
       console.error('Failed to create order:', error);

@@ -3,12 +3,15 @@ import { Plus, Search, Package, Truck, DollarSign, Calendar, Filter } from 'luci
 import { invoissAPI } from '@/lib/invoiss-api';
 import type { Order } from '@/types';
 import NewOrderModal from './NewOrderModal';
+import OrderDetailModal from './OrderDetailModal';
 
 export default function OrderList() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderTypeFilter, setOrderTypeFilter] = useState<'all' | 'INVOICE' | 'ORDER'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -210,7 +213,13 @@ export default function OrderList() {
           ) : (
             filteredOrders.map((order) => (
               <li key={order.id}>
-                <div className="px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer">
+                <div
+                  onClick={() => {
+                    setSelectedOrder(order);
+                    setShowDetailModal(true);
+                  }}
+                  className="px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
@@ -278,6 +287,17 @@ export default function OrderList() {
           onSuccess={() => {
             setShowNewOrderModal(false);
             loadOrders();
+          }}
+        />
+      )}
+
+      {/* Order Detail Modal */}
+      {showDetailModal && selectedOrder && (
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedOrder(null);
           }}
         />
       )}
