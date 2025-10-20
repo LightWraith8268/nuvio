@@ -6,6 +6,7 @@ import OrderList from './components/orders/OrderList';
 import NewOrderModal from './components/orders/NewOrderModal';
 import HouseAccountList from './components/accounts/HouseAccountList';
 import DeliveryList from './components/delivery/DeliveryList';
+import DriverView from './components/driver/DriverView';
 import EmployeeLoginModal from './components/auth/EmployeeLoginModal';
 import { useAuth } from './contexts/AuthContext';
 
@@ -112,6 +113,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<OrderList />} />
             <Route path="/deliveries" element={<DeliveryList />} />
+            <Route path="/driver" element={<DriverView />} />
             <Route path="/clients" element={<ClientList />} />
             <Route path="/accounts" element={<HouseAccountList />} />
             <Route path="/settings" element={<div>Settings Page (Coming Soon)</div>} />
