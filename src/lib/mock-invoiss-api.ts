@@ -224,7 +224,11 @@ class MockInvoissAPI {
     metadata?: any;
   }): Promise<Order> {
     const client = this.clients.get(data.clientId);
-    if (!client) throw new Error('Client not found');
+    if (!client) {
+      console.error('Client not found. Looking for:', data.clientId);
+      console.error('Available clients:', Array.from(this.clients.keys()));
+      throw new Error(`Client not found: ${data.clientId}`);
+    }
 
     const subTotal = data.lineItems.reduce(
       (sum, item) => sum + (item.price * item.quantity),
