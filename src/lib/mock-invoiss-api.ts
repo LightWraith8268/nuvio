@@ -388,7 +388,15 @@ class MockInvoissAPI {
   // Employee Management
   async authenticateEmployee(employeeId: string, pin?: string): Promise<Employee | null> {
     const employees = Array.from(this.employees.values());
-    const employee = employees.find(e => e.employeeId === employeeId && e.isActive);
+    console.log('All employees in Map:', employees.map(e => ({ id: e.employeeId, name: e.name, isActive: e.isActive })));
+    console.log('Looking for employeeId:', employeeId, 'type:', typeof employeeId);
+
+    const employee = employees.find(e => {
+      console.log('Comparing:', e.employeeId, 'type:', typeof e.employeeId, 'with', employeeId);
+      return e.employeeId === employeeId && e.isActive;
+    });
+
+    console.log('Found employee:', employee ? employee.name : 'NOT FOUND');
 
     if (!employee) return null;
 
