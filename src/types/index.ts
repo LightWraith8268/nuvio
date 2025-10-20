@@ -1,7 +1,7 @@
 // Core types for the POS system
 
-export type OrderType = 'INVOICE' | 'ORDER';
-export type OrderStatus = 'DRAFT' | 'CONFIRMED' | 'SCHEDULED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+export type OrderType = 'INVOICE' | 'ORDER' | 'ESTIMATE';
+export type OrderStatus = 'DRAFT' | 'ESTIMATE' | 'CONFIRMED' | 'SCHEDULED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
 export type PaymentStatus = 'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'REFUNDED';
 export type PaymentMethodType = 'card_on_file' | 'cash' | 'check' | 'clover_terminal';
 
@@ -17,6 +17,15 @@ export interface Client {
   savedPaymentMethods?: SavedCard[];
   houseAccount?: HouseAccount;
   priceBook?: PriceBook; // Defaults to 'retail'
+  // Tax exemption
+  isTaxExempt?: boolean;
+  taxExemptCertificate?: {
+    number: string;
+    expirationDate: string;
+    issuingState: string;
+  };
+  // Commercial setup
+  commercialSetup?: CommercialSetup;
   metadata?: Record<string, any>;
   createdAt: string;
 }
@@ -97,18 +106,36 @@ export interface SavedCard {
   isDefault: boolean;
 }
 
+export interface ProductCategory {
+  id: string;
+  name: string;
+  description?: string;
+  parentCategoryId?: string; // For subcategories
+  sortOrder?: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface Product {
   id: string;
   name: string;
   description?: string;
   sku?: string;
-  contractorPrice: number; // From Invoiss
-  retailPrice?: number; // Custom added by us
-  priceType: 'fixed' | 'per_weight';
-  weightUnit?: 'lbs' | 'kg' | 'oz';
-  category?: string;
+  contractorPrice: number; // Base contractor price
+  retailPrice?: number; // Base retail price
+  // Additional price books for commercial/special customers
+  priceBooks?: Record<string, number>; // { 'commercial': 45.00, 'preferred': 40.00 }
+  priceType: 'fixed' | 'per_unit'; // 'per_unit' for materials sold by TON or YARD
+  unit?: 'ton' | 'yard' | 'each'; // 'ton' for weight-based, 'yard' for volume-based (cubic yard), 'each' for fixed items
+  categoryId?: string; // Reference to ProductCategory
+  category?: string; // Category name for backwards compatibility
   inStock: boolean;
+  // Inventory settings
+  trackInventory?: boolean; // Whether to track inventory for this product
+  minStockLevel?: number; // Minimum stock level before reorder
   metadata?: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LineItem {
@@ -116,15 +143,24 @@ export interface LineItem {
   productId?: string; // Reference to Product from Invoiss
   name: string;
   description?: string;
-  quantity: number;
-  price: number; // Calculated based on priceBook
-  priceType?: 'fixed' | 'per_weight';
-  weight?: number;
-  weightUnit?: 'lbs' | 'kg' | 'oz';
+  quantity: number; // Number of units (tons, yards, or items)
+  price: number; // Price per unit (calculated based on priceBook or override)
+  originalPrice?: number; // Original price before override
+  priceOverride?: {
+    overriddenBy: string; // Employee ID who approved override
+    reason: 'manager_approval' | 'special_customer' | 'damaged_goods' | 'promotion' | 'other';
+    reasonNote?: string; // Free-text explanation
+    overriddenAt: string; // Timestamp
+  };
+  priceType?: 'fixed' | 'per_unit';
+  unit?: 'ton' | 'yard' | 'each';
   metadata?: {
-    grossWeight?: number;
-    tareWeight?: number;
-    netWeight?: number;
+    // Tare and Gross weight: ONLY for TON-based materials (unit === 'ton')
+    // Products sold by YARD (cubic yard) do NOT have weight measurements
+    // Examples: Mulch, Screen Top Soil, Planters Mix, Dairy Compost, Class 1 Compost
+    grossWeight?: number; // Total weight including container (TON materials only)
+    tareWeight?: number; // Container weight (TON materials only)
+    netWeight?: number; // Actual product weight (grossWeight - tareWeight, TON materials only)
     contractorPrice?: number;
     retailPrice?: number;
   };
@@ -226,6 +262,8 @@ export interface EmployeePermissions {
   applyDiscounts: boolean;
   overridePrices: boolean;
   processRefunds: boolean;
+  createEstimates: boolean;
+  approveEstimates: boolean; // Convert estimate to order
 
   // Client permissions
   createClients: boolean;
@@ -238,6 +276,7 @@ export interface EmployeePermissions {
   createProducts: boolean;
   editProducts: boolean;
   viewProducts: boolean;
+  manageProducts: boolean; // Edit base prices/catalog
 
   // House account permissions
   createHouseAccounts: boolean;
@@ -245,6 +284,22 @@ export interface EmployeePermissions {
   editHouseAccounts: boolean;
   chargeHouseAccounts: boolean;
   processHouseAccountPayments: boolean;
+
+  // Inventory permissions
+  viewInventory: boolean;
+  adjustInventory: boolean;
+  transferInventory: boolean;
+
+  // Purchase permissions
+  createPurchaseOrders: boolean;
+  viewPurchaseOrders: boolean;
+  approvePurchaseOrders: boolean;
+  receivePurchaseOrders: boolean;
+  manageVendors: boolean;
+
+  // Location permissions
+  viewLocations: boolean;
+  manageLocations: boolean; // Admin only
 
   // System permissions
   viewReports: boolean;
@@ -262,6 +317,8 @@ export const DEFAULT_PERMISSIONS: Record<EmployeeRole, EmployeePermissions> = {
     applyDiscounts: false,
     overridePrices: false,
     processRefunds: false,
+    createEstimates: true,
+    approveEstimates: false,
     createClients: true,
     viewClients: true,
     editClients: false,
@@ -270,11 +327,22 @@ export const DEFAULT_PERMISSIONS: Record<EmployeeRole, EmployeePermissions> = {
     createProducts: false,
     editProducts: false,
     viewProducts: true,
+    manageProducts: false,
     createHouseAccounts: false,
     viewHouseAccounts: true,
     editHouseAccounts: false,
     chargeHouseAccounts: true,
     processHouseAccountPayments: false,
+    viewInventory: true,
+    adjustInventory: false,
+    transferInventory: false,
+    createPurchaseOrders: false,
+    viewPurchaseOrders: false,
+    approvePurchaseOrders: false,
+    receivePurchaseOrders: false,
+    manageVendors: false,
+    viewLocations: true,
+    manageLocations: false,
     viewReports: false,
     manageEmployees: false,
     accessSettings: false,
@@ -287,6 +355,8 @@ export const DEFAULT_PERMISSIONS: Record<EmployeeRole, EmployeePermissions> = {
     applyDiscounts: true,
     overridePrices: true,
     processRefunds: true,
+    createEstimates: true,
+    approveEstimates: true,
     createClients: true,
     viewClients: true,
     editClients: true,
@@ -295,11 +365,22 @@ export const DEFAULT_PERMISSIONS: Record<EmployeeRole, EmployeePermissions> = {
     createProducts: true,
     editProducts: true,
     viewProducts: true,
+    manageProducts: false,
     createHouseAccounts: true,
     viewHouseAccounts: true,
     editHouseAccounts: true,
     chargeHouseAccounts: true,
     processHouseAccountPayments: true,
+    viewInventory: true,
+    adjustInventory: true,
+    transferInventory: true,
+    createPurchaseOrders: true,
+    viewPurchaseOrders: true,
+    approvePurchaseOrders: true,
+    receivePurchaseOrders: true,
+    manageVendors: true,
+    viewLocations: true,
+    manageLocations: false,
     viewReports: true,
     manageEmployees: false,
     accessSettings: false,
@@ -312,6 +393,8 @@ export const DEFAULT_PERMISSIONS: Record<EmployeeRole, EmployeePermissions> = {
     applyDiscounts: true,
     overridePrices: true,
     processRefunds: true,
+    createEstimates: true,
+    approveEstimates: true,
     createClients: true,
     viewClients: true,
     editClients: true,
@@ -320,13 +403,202 @@ export const DEFAULT_PERMISSIONS: Record<EmployeeRole, EmployeePermissions> = {
     createProducts: true,
     editProducts: true,
     viewProducts: true,
+    manageProducts: true,
     createHouseAccounts: true,
     viewHouseAccounts: true,
     editHouseAccounts: true,
     chargeHouseAccounts: true,
     processHouseAccountPayments: true,
+    viewInventory: true,
+    adjustInventory: true,
+    transferInventory: true,
+    createPurchaseOrders: true,
+    viewPurchaseOrders: true,
+    approvePurchaseOrders: true,
+    receivePurchaseOrders: true,
+    manageVendors: true,
+    viewLocations: true,
+    manageLocations: true,
     viewReports: true,
     manageEmployees: true,
     accessSettings: true,
   },
 };
+
+// ========================================
+// Location & Inventory Types
+// ========================================
+
+export interface Location {
+  id: string;
+  name: string;
+  type: 'warehouse' | 'yard' | 'store' | 'other';
+  address?: Address;
+  isActive: boolean;
+  isPrimary?: boolean; // Default location for operations
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  productId: string;
+  locationId: string;
+  quantityOnHand: number; // Current quantity at this location
+  unit: 'ton' | 'yard' | 'each';
+  reorderPoint?: number; // Trigger for low stock alerts
+  reorderQuantity?: number; // Quantity to reorder
+  costBasis?: number; // Average cost per unit
+  lastCountDate?: string; // Last physical inventory count
+  metadata?: Record<string, any>;
+  updatedAt: string;
+}
+
+export type InventoryTransactionType = 'purchase' | 'sale' | 'transfer_in' | 'transfer_out' | 'adjustment' | 'return';
+
+export interface InventoryTransaction {
+  id: string;
+  type: InventoryTransactionType;
+  productId: string;
+  locationId: string;
+  quantity: number; // Positive for increases, negative for decreases
+  unit: 'ton' | 'yard' | 'each';
+  balanceAfter: number; // Quantity on hand after this transaction
+  reference?: {
+    type: 'order' | 'purchase_order' | 'transfer' | 'adjustment';
+    id: string;
+    number?: string;
+  };
+  reason?: string; // For adjustments
+  employeeId?: string;
+  createdAt: string;
+}
+
+// ========================================
+// Vendor & Purchase Order Types
+// ========================================
+
+export interface Vendor {
+  id: string;
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: Address;
+  paymentTerms?: 'net_15' | 'net_30' | 'net_60' | 'net_90' | 'due_on_receipt' | 'prepaid';
+  accountNumber?: string; // Vendor's account number for your business
+  taxId?: string; // Vendor's tax ID/EIN
+  isActive: boolean;
+  notes?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PurchaseOrderStatus = 'draft' | 'submitted' | 'approved' | 'partially_received' | 'received' | 'cancelled';
+
+export interface PurchaseOrder {
+  id: string;
+  number: string; // PO number (e.g., "PO-2025-001")
+  vendorId: string;
+  vendor: Vendor;
+  locationId: string; // Where inventory will be received
+  status: PurchaseOrderStatus;
+  lineItems: PurchaseOrderLineItem[];
+  subTotal: number;
+  taxTotal: number;
+  shippingCost: number;
+  grandTotal: number;
+  expectedDeliveryDate?: string;
+  submittedDate?: string;
+  approvedDate?: string;
+  approvedBy?: string; // Employee ID
+  receivedDate?: string; // Fully received date
+  notes?: string;
+  internalNotes?: string; // Not shared with vendor
+  metadata?: Record<string, any>;
+  createdBy: string; // Employee ID
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseOrderLineItem {
+  id?: string;
+  productId: string;
+  product?: Product; // Populated product info
+  description?: string;
+  quantityOrdered: number;
+  quantityReceived: number;
+  unit: 'ton' | 'yard' | 'each';
+  unitCost: number; // Cost per unit from vendor
+  totalCost: number; // quantityOrdered * unitCost
+  receivingHistory?: {
+    date: string;
+    quantity: number;
+    receivedBy: string; // Employee ID
+    notes?: string;
+  }[];
+}
+
+// ========================================
+// Transfer Types
+// ========================================
+
+export type TransferStatus = 'pending' | 'approved' | 'in_transit' | 'partially_received' | 'received' | 'cancelled';
+
+export interface Transfer {
+  id: string;
+  number: string; // Transfer number (e.g., "TRN-2025-001")
+  fromLocationId: string;
+  toLocationId: string;
+  fromLocation?: Location;
+  toLocation?: Location;
+  status: TransferStatus;
+  lineItems: TransferLineItem[];
+  requestedDate: string;
+  requestedBy: string; // Employee ID
+  approvedDate?: string;
+  approvedBy?: string; // Employee ID
+  shippedDate?: string;
+  driverId?: string;
+  vehicleInfo?: string;
+  receivedDate?: string;
+  receivedBy?: string; // Employee ID
+  notes?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TransferLineItem {
+  id?: string;
+  productId: string;
+  product?: Product;
+  quantityRequested: number;
+  quantityShipped: number;
+  quantityReceived: number;
+  unit: 'ton' | 'yard' | 'each';
+  notes?: string;
+}
+
+// ========================================
+// Commercial Client Types
+// ========================================
+
+export interface CommercialSetup {
+  isCommercial: boolean;
+  companyName?: string;
+  taxId?: string; // EIN or tax ID
+  billingAddress?: Address;
+  creditLimit?: number;
+  paymentTerms?: 'net_15' | 'net_30' | 'net_60' | 'net_90' | 'due_on_receipt';
+  // Commercial-specific pricing
+  commercialPriceBook?: string; // Custom price book ID
+  volumeDiscounts?: {
+    minQuantity: number;
+    discountPercent: number;
+  }[];
+  preferredVendor?: boolean; // Gets best pricing
+  accountManager?: string; // Employee ID
+  notes?: string;
+}

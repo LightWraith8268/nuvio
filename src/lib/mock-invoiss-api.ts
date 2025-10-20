@@ -27,10 +27,10 @@ class MockInvoissAPI {
         name: 'Premium Mulch - Dark Brown',
         description: 'High-quality hardwood mulch',
         sku: 'MUL-001',
-        contractorPrice: 45.00, // From Invoiss
-        retailPrice: 65.00, // Custom added
-        priceType: 'per_weight',
-        weightUnit: 'lbs',
+        contractorPrice: 45.00, // Per cubic yard
+        retailPrice: 65.00, // Per cubic yard
+        priceType: 'per_unit',
+        unit: 'yard', // Sold by cubic yard (volume)
         category: 'Mulch',
         inStock: true,
       },
@@ -41,20 +41,20 @@ class MockInvoissAPI {
         sku: 'MUL-002',
         contractorPrice: 50.00,
         retailPrice: 70.00,
-        priceType: 'per_weight',
-        weightUnit: 'lbs',
+        priceType: 'per_unit',
+        unit: 'yard', // Sold by cubic yard (volume)
         category: 'Mulch',
         inStock: true,
       },
       {
         id: 'prod-3',
-        name: 'Topsoil - Premium Grade',
+        name: 'Screen Top Soil',
         description: 'Screened topsoil for gardens',
         sku: 'SOIL-001',
         contractorPrice: 35.00,
         retailPrice: 50.00,
-        priceType: 'per_weight',
-        weightUnit: 'lbs',
+        priceType: 'per_unit',
+        unit: 'yard', // Sold by cubic yard (volume)
         category: 'Soil',
         inStock: true,
       },
@@ -65,30 +65,32 @@ class MockInvoissAPI {
         sku: 'ROCK-001',
         contractorPrice: 60.00,
         retailPrice: 85.00,
-        priceType: 'per_weight',
-        weightUnit: 'lbs',
+        priceType: 'per_unit',
+        unit: 'ton', // Sold by weight (ton)
         category: 'Stone',
         inStock: true,
       },
       {
         id: 'prod-5',
         name: 'Delivery Fee - Standard',
-        description: 'Standard delivery within 10 miles',
+        description: 'Standard delivery (calculated by zone)',
         sku: 'SVC-001',
         contractorPrice: 75.00,
         retailPrice: 95.00,
         priceType: 'fixed',
+        unit: 'each',
         category: 'Services',
         inStock: true,
       },
       {
         id: 'prod-6',
-        name: 'Compost - Organic',
-        description: 'Organic compost blend',
+        name: 'Dairy Compost',
+        description: 'Organic dairy compost blend',
         sku: 'COMP-001',
         contractorPrice: 40.00,
-        priceType: 'per_weight',
-        weightUnit: 'lbs',
+        retailPrice: 55.00,
+        priceType: 'per_unit',
+        unit: 'yard', // Sold by cubic yard (volume)
         category: 'Soil',
         inStock: true,
       },
@@ -240,13 +242,14 @@ class MockInvoissAPI {
     let deliveryFee = 0;
     if (data.type === 'ORDER' && data.metadata?.delivery?.address) {
       try {
-        // Calculate total weight from line items
-        const orderWeight = this.calculateOrderWeight(data.lineItems);
+        // Determine vehicle type based on line items
+        const vehicleType = this.determineVehicleType(data.lineItems);
 
         const deliveryCalc = await deliveryCalculator.calculateDeliveryFee(
           data.metadata.delivery.address,
           subTotal,
-          orderWeight
+          undefined, // No weight needed
+          data.lineItems
         );
         deliveryFee = deliveryCalc.fee;
 
@@ -257,8 +260,7 @@ class MockInvoissAPI {
           freeDelivery: deliveryCalc.freeDelivery,
           zone: deliveryCalc.zone,
           distance: deliveryCalc.distance,
-          vehicleType: deliveryCalc.vehicleType,
-          weight: orderWeight,
+          vehicleType: vehicleType,
         };
 
         console.log('✓ Delivery fee calculated:', deliveryFee, deliveryCalc);
@@ -268,23 +270,38 @@ class MockInvoissAPI {
       }
     }
 
-    // Calculate tax using tax-lookup API
+    // Calculate tax using tax-lookup API (pass client for tax exemption check)
     let taxTotal = subTotal * 0.08; // Default 8% fallback
+    let taxExemptReason: string | undefined;
+
     if (data.type === 'ORDER' && data.metadata?.delivery?.address) {
       try {
         const taxCalc = await taxCalculator.calculateTax(
           data.metadata.delivery.address,
-          subTotal + deliveryFee
+          subTotal + deliveryFee,
+          client // Pass client for tax exemption check
         );
         taxTotal = taxCalc.taxAmount;
-        console.log('✓ Tax calculated via API:', taxTotal, `(${(taxCalc.taxRate * 100).toFixed(2)}%)`);
+        taxExemptReason = taxCalc.exemptReason;
+
+        if (taxCalc.isTaxExempt) {
+          console.log('✓ Tax exempt client - no tax charged');
+        } else {
+          console.log('✓ Tax calculated via API:', taxTotal, `(${(taxCalc.taxRate * 100).toFixed(2)}%)`);
+        }
       } catch (error) {
         console.warn('Failed to calculate tax via API, using default:', error);
-        taxTotal = (subTotal + deliveryFee) * 0.08;
+        taxTotal = client?.isTaxExempt ? 0 : (subTotal + deliveryFee) * 0.08;
       }
     } else {
-      // In-store orders: use default tax
-      taxTotal = subTotal * 0.08;
+      // In-store orders: check tax exemption or use default tax
+      taxTotal = client?.isTaxExempt ? 0 : subTotal * 0.08;
+      if (client?.isTaxExempt) {
+        taxExemptReason = client.taxExemptCertificate?.number
+          ? `Tax Exempt (Certificate: ${client.taxExemptCertificate.number})`
+          : 'Tax Exempt';
+        console.log('✓ Tax exempt client - no tax charged');
+      }
     }
 
     const grandTotal = subTotal + deliveryFee + taxTotal;
@@ -508,27 +525,53 @@ class MockInvoissAPI {
   }
 
   /**
-   * Calculate total weight of an order from line items
-   * Looks up product weights and multiplies by quantity
+   * Determine vehicle type based on order line items
+   *
+   * Vehicle type rules by material:
+   * - TON materials: Over 7 tons = Tandem required
+   * - Mulch (YARD): Over 12 cubic yards = Tandem required
+   * - Soil/Compost (YARD): Over 10 cubic yards = Tandem required
+   *   (Screen Top Soil, Planters Mix, Dairy Compost, Class 1 Compost)
    */
-  private calculateOrderWeight(lineItems: LineItem[]): number {
-    let totalWeight = 0;
-
+  private determineVehicleType(lineItems: LineItem[]): 'trailer' | 'tandem' {
     for (const item of lineItems) {
-      // Try to find the product to get its weight
       const product = this.products.get(item.productId || '');
+      if (!product) continue;
 
-      if (product && product.priceType === 'per_weight') {
-        // For weight-based products, the quantity IS the weight
-        totalWeight += item.quantity;
-      } else if (product && product.metadata?.weight) {
-        // For fixed-price products with weight metadata
-        totalWeight += product.metadata.weight * item.quantity;
+      if (product.unit === 'ton') {
+        // TON materials: Over 7 tons requires tandem
+        const tons = item.metadata?.netWeight
+          ? item.metadata.netWeight / 2000  // Convert lbs to tons
+          : item.quantity; // quantity is in tons
+
+        if (tons > 7) {
+          return 'tandem';
+        }
+      } else if (product.unit === 'yard') {
+        const category = product.category?.toLowerCase() || '';
+        const name = product.name.toLowerCase();
+
+        // Check if it's mulch
+        if (category.includes('mulch') || name.includes('mulch')) {
+          if (item.quantity > 12) {
+            return 'tandem';
+          }
+        }
+        // Check if it's soil or compost
+        else if (
+          category.includes('soil') ||
+          category.includes('compost') ||
+          name.includes('soil') ||
+          name.includes('compost')
+        ) {
+          if (item.quantity > 10) {
+            return 'tandem';
+          }
+        }
       }
-      // If no weight info available, skip this item (services, etc.)
     }
 
-    return totalWeight;
+    return 'trailer';
   }
 }
 

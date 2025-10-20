@@ -7,6 +7,7 @@ import NewOrderModal from './components/orders/NewOrderModal';
 import HouseAccountList from './components/accounts/HouseAccountList';
 import DeliveryList from './components/delivery/DeliveryList';
 import DriverView from './components/driver/DriverView';
+import SettingsPage from './components/admin/SettingsPage';
 import EmployeeLoginModal from './components/auth/EmployeeLoginModal';
 import { useAuth } from './contexts/AuthContext';
 
@@ -116,7 +117,7 @@ function App() {
             <Route path="/driver" element={<DriverView />} />
             <Route path="/clients" element={<ClientList />} />
             <Route path="/accounts" element={<HouseAccountList />} />
-            <Route path="/settings" element={<div>Settings Page (Coming Soon)</div>} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>
       </div>

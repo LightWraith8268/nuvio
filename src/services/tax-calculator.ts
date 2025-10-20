@@ -5,7 +5,7 @@
  * Can integrate with external tax APIs or use local tax rate databases.
  */
 
-import type { Address } from '@/types';
+import type { Address, Client } from '@/types';
 import { quoteApi } from './api-clients/calendar-api';
 
 export interface TaxRate {
@@ -28,6 +28,8 @@ export interface TaxCalculation {
   taxAmount: number;
   taxRate: number;
   total: number;
+  isTaxExempt?: boolean;
+  exemptReason?: string;
   breakdown: TaxRate['breakdown'];
 }
 
@@ -51,9 +53,35 @@ class TaxCalculatorService {
 
   /**
    * Calculate tax for a given address and amount
+   * @param address - Delivery/billing address
+   * @param subtotal - Order subtotal before tax
+   * @param client - Optional client to check for tax exemption
    */
-  async calculateTax(address: Address, subtotal: number): Promise<TaxCalculation> {
+  async calculateTax(address: Address, subtotal: number, client?: Client): Promise<TaxCalculation> {
     try {
+      // Check if client is tax exempt
+      if (client?.isTaxExempt) {
+        console.log('✓ Client is tax exempt:', {
+          clientId: client.id,
+          clientName: client.name,
+          certificate: client.taxExemptCertificate?.number,
+        });
+
+        return {
+          subtotal,
+          taxAmount: 0,
+          taxRate: 0,
+          total: subtotal,
+          isTaxExempt: true,
+          exemptReason: client.taxExemptCertificate?.number
+            ? `Tax Exempt (Certificate: ${client.taxExemptCertificate.number})`
+            : 'Tax Exempt',
+          breakdown: {
+            state: 0,
+          },
+        };
+      }
+
       // Try Supabase tax-lookup API first
       try {
         const response = await quoteApi.lookupTax(address, subtotal);
