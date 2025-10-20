@@ -203,7 +203,6 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
     setSaving(true);
 
     try {
-      console.log('Creating order with selectedClient:', selectedClient);
       const orderData: any = {
         clientId: selectedClient?.id,
         type: orderType === 'in-store' ? 'INVOICE' : 'ORDER',
@@ -350,7 +349,6 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
                     <button
                       key={client.id}
                       onClick={() => {
-                        console.log('Selected client:', client);
                         setSelectedClient(client);
                         setStep('items');
                       }}

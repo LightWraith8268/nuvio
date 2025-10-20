@@ -56,7 +56,12 @@ class InvoissAPI {
     }
 
     if (endpoint.startsWith('orders')) {
-      if (method === 'POST') return mockInvoissAPI.createOrder(body);
+      if (method === 'POST') return mockInvoissAPI.createOrder({
+        clientId: body.client,
+        type: body.type,
+        lineItems: body.lineItems,
+        metadata: body.metadata
+      });
       if (method === 'GET' && endpoint.includes('/')) {
         const id = endpoint.split('/')[1];
         return mockInvoissAPI.getOrder(id);
