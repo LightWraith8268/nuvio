@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Edit2, CreditCard, MapPin, DollarSign, Save, Star } from 'lucide-react';
+import { X, Edit2, CreditCard, MapPin, DollarSign, Save, Star, ShieldCheck } from 'lucide-react';
 import { invoissAPI } from '@/lib/invoiss-api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Client } from '@/types';
@@ -21,6 +21,16 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
   const [email, setEmail] = useState(client.email || '');
   const [phone, setPhone] = useState(client.phone || '');
   const [priceBook, setPriceBook] = useState<'retail' | 'contractor'>(client.priceBook || 'retail');
+  const [isTaxExempt, setIsTaxExempt] = useState(client.isTaxExempt || false);
+  const [taxExemptCertificateNumber, setTaxExemptCertificateNumber] = useState(
+    client.taxExemptCertificate?.number || ''
+  );
+  const [taxExemptExpirationDate, setTaxExemptExpirationDate] = useState(
+    client.taxExemptCertificate?.expirationDate || ''
+  );
+  const [taxExemptIssuingState, setTaxExemptIssuingState] = useState(
+    client.taxExemptCertificate?.issuingState || ''
+  );
   const [billingAddress, setBillingAddress] = useState({
     street: client.billing?.street || '',
     city: client.billing?.city || '',
@@ -44,13 +54,24 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
     setError('');
 
     try {
+      // Build tax exemption certificate if applicable
+      const taxExemptCertificate = isTaxExempt && taxExemptCertificateNumber
+        ? {
+            number: taxExemptCertificateNumber,
+            expirationDate: taxExemptExpirationDate,
+            issuingState: taxExemptIssuingState
+          }
+        : undefined;
+
       const updatedClient = await invoissAPI.updateClient(client.id, {
         name,
         email,
         phone,
         priceBook,
         billing: billingAddress,
-        shipping: shippingAddress
+        shipping: shippingAddress,
+        isTaxExempt,
+        taxExemptCertificate
       });
 
       onUpdate(updatedClient);
@@ -68,6 +89,10 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
     setEmail(client.email || '');
     setPhone(client.phone || '');
     setPriceBook(client.priceBook || 'retail');
+    setIsTaxExempt(client.isTaxExempt || false);
+    setTaxExemptCertificateNumber(client.taxExemptCertificate?.number || '');
+    setTaxExemptExpirationDate(client.taxExemptCertificate?.expirationDate || '');
+    setTaxExemptIssuingState(client.taxExemptCertificate?.issuingState || '');
     setBillingAddress({
       street: client.billing?.street || '',
       city: client.billing?.city || '',
@@ -243,6 +268,114 @@ export default function ClientDetailModal({ client, onClose, onUpdate }: ClientD
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Tax Exemption */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" />
+              Tax Exemption
+            </h4>
+
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isTaxExempt"
+                    checked={isTaxExempt}
+                    onChange={(e) => setIsTaxExempt(e.target.checked)}
+                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  />
+                  <label htmlFor="isTaxExempt" className="ml-2 block text-sm font-medium text-gray-700">
+                    Tax Exempt
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 ml-6">
+                  Mark this client as tax-exempt (no sales tax will be charged)
+                </p>
+
+                {isTaxExempt && (
+                  <div className="ml-6 space-y-3 p-3 bg-gray-50 rounded border border-gray-200">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Certificate Number (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={taxExemptCertificateNumber}
+                        onChange={(e) => setTaxExemptCertificateNumber(e.target.value)}
+                        placeholder="e.g., TX-123456789"
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Expiration Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={taxExemptExpirationDate}
+                          onChange={(e) => setTaxExemptExpirationDate(e.target.value)}
+                          className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Issuing State (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={taxExemptIssuingState}
+                          onChange={(e) => setTaxExemptIssuingState(e.target.value)}
+                          placeholder="e.g., TX"
+                          maxLength={2}
+                          className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary uppercase"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                {client.isTaxExempt ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded font-medium flex items-center gap-1">
+                        <ShieldCheck className="w-4 h-4" />
+                        Tax Exempt
+                      </span>
+                    </div>
+                    {client.taxExemptCertificate && (
+                      <div className="ml-6 text-sm space-y-1">
+                        {client.taxExemptCertificate.number && (
+                          <p className="text-gray-700">
+                            <span className="font-medium">Certificate:</span> {client.taxExemptCertificate.number}
+                          </p>
+                        )}
+                        {client.taxExemptCertificate.expirationDate && (
+                          <p className="text-gray-700">
+                            <span className="font-medium">Expires:</span>{' '}
+                            {new Date(client.taxExemptCertificate.expirationDate).toLocaleDateString()}
+                          </p>
+                        )}
+                        {client.taxExemptCertificate.issuingState && (
+                          <p className="text-gray-700">
+                            <span className="font-medium">Issuing State:</span> {client.taxExemptCertificate.issuingState}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Not tax exempt</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Billing Address */}

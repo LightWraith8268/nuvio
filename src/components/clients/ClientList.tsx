@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, CreditCard, MapPin, Phone, Mail } from 'lucide-react';
+import { Search, Plus, CreditCard, MapPin, Phone, Mail, ShieldCheck } from 'lucide-react';
 import { invoissAPI } from '@/lib/invoiss-api';
 import ClientDetailModal from './ClientDetailModal';
 import type { Client } from '@/types';
@@ -174,6 +174,12 @@ export default function ClientList() {
                               Default
                             </span>
                           )}
+                          {client.isTaxExempt && (
+                            <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded font-medium flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3" />
+                              Tax Exempt
+                            </span>
+                          )}
                         </div>
                         {client.hasCardOnFile && (
                           <div className="ml-2 flex-shrink-0 flex">
@@ -259,7 +265,11 @@ export function NewClientModal({ onClose, onSuccess }: { onClose: () => void; on
     street: '',
     city: '',
     state: '',
-    zip: ''
+    zip: '',
+    isTaxExempt: false,
+    taxExemptCertificateNumber: '',
+    taxExemptExpirationDate: '',
+    taxExemptIssuingState: ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -275,12 +285,23 @@ export function NewClientModal({ onClose, onSuccess }: { onClose: () => void; on
         zip: formData.zip
       }] : [];
 
+      // Build tax exemption certificate if applicable
+      const taxExemptCertificate = formData.isTaxExempt && formData.taxExemptCertificateNumber
+        ? {
+            number: formData.taxExemptCertificateNumber,
+            expirationDate: formData.taxExemptExpirationDate,
+            issuingState: formData.taxExemptIssuingState
+          }
+        : undefined;
+
       await invoissAPI.createClient({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         priceBook: formData.priceBook,
-        addresses
+        addresses,
+        isTaxExempt: formData.isTaxExempt,
+        taxExemptCertificate
       });
 
       onSuccess();
@@ -342,6 +363,69 @@ export function NewClientModal({ onClose, onSuccess }: { onClose: () => void; on
             <p className="mt-1 text-xs text-gray-500">
               Determines which pricing this client receives for products
             </p>
+          </div>
+
+          <div className="border-t pt-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="isTaxExempt"
+                checked={formData.isTaxExempt}
+                onChange={(e) => setFormData({ ...formData, isTaxExempt: e.target.checked })}
+                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+              />
+              <label htmlFor="isTaxExempt" className="ml-2 block text-sm font-medium text-gray-700">
+                Tax Exempt
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-gray-500 ml-6">
+              Mark this client as tax-exempt (no sales tax will be charged)
+            </p>
+
+            {formData.isTaxExempt && (
+              <div className="mt-4 ml-6 space-y-3 p-3 bg-gray-50 rounded border border-gray-200">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Certificate Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.taxExemptCertificateNumber}
+                    onChange={(e) => setFormData({ ...formData, taxExemptCertificateNumber: e.target.value })}
+                    placeholder="e.g., TX-123456789"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Expiration Date (Optional)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.taxExemptExpirationDate}
+                      onChange={(e) => setFormData({ ...formData, taxExemptExpirationDate: e.target.value })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Issuing State (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.taxExemptIssuingState}
+                      onChange={(e) => setFormData({ ...formData, taxExemptIssuingState: e.target.value })}
+                      placeholder="e.g., TX"
+                      maxLength={2}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm uppercase"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-t pt-4">
