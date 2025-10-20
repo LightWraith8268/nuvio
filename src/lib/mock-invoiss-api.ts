@@ -6,6 +6,7 @@ import { DEFAULT_PERMISSIONS } from '@/types';
 import { deliveryCalculator } from '@/services/delivery-calculator';
 import { taxCalculator } from '@/services/tax-calculator';
 import { calendarService } from '@/services/calendar-service';
+import * as mockInventory from './mock-inventory';
 
 class MockInvoissAPI {
   private clients: Map<string, Client> = new Map();
@@ -33,6 +34,8 @@ class MockInvoissAPI {
         unit: 'yard', // Sold by cubic yard (volume)
         category: 'Mulch',
         inStock: true,
+        trackInventory: true,
+        minStockLevel: 50,
       },
       {
         id: 'prod-2',
@@ -45,6 +48,8 @@ class MockInvoissAPI {
         unit: 'yard', // Sold by cubic yard (volume)
         category: 'Mulch',
         inStock: true,
+        trackInventory: true,
+        minStockLevel: 50,
       },
       {
         id: 'prod-3',
@@ -57,6 +62,8 @@ class MockInvoissAPI {
         unit: 'yard', // Sold by cubic yard (volume)
         category: 'Soil',
         inStock: true,
+        trackInventory: true,
+        minStockLevel: 75,
       },
       {
         id: 'prod-4',
@@ -69,6 +76,8 @@ class MockInvoissAPI {
         unit: 'ton', // Sold by weight (ton)
         category: 'Stone',
         inStock: true,
+        trackInventory: true,
+        minStockLevel: 30,
       },
       {
         id: 'prod-5',
@@ -81,6 +90,7 @@ class MockInvoissAPI {
         unit: 'each',
         category: 'Services',
         inStock: true,
+        trackInventory: false, // Services don't have inventory
       },
       {
         id: 'prod-6',
@@ -93,10 +103,15 @@ class MockInvoissAPI {
         unit: 'yard', // Sold by cubic yard (volume)
         category: 'Soil',
         inStock: true,
+        trackInventory: true,
+        minStockLevel: 60,
       },
     ];
 
     testProducts.forEach(product => this.products.set(product.id, product));
+
+    // Initialize inventory system with products
+    mockInventory.initializeMockInventory(testProducts);
 
     // Add test clients
     const testClients: Client[] = [
@@ -325,6 +340,31 @@ class MockInvoissAPI {
 
     this.orders.set(order.id, order);
 
+    // Record inventory transactions for tracked products
+    const primaryLocation = mockInventory.getPrimaryLocation();
+    if (primaryLocation) {
+      data.lineItems.forEach((lineItem) => {
+        if (lineItem.productId) {
+          const product = this.products.get(lineItem.productId);
+          if (product && product.trackInventory) {
+            try {
+              mockInventory.recordSale(
+                lineItem.productId,
+                primaryLocation.id,
+                lineItem.quantity,
+                product.unit || 'each',
+                order.id,
+                order.number
+              );
+              console.log(`✓ Inventory reduced: ${product.name} (-${lineItem.quantity} ${product.unit})`);
+            } catch (error) {
+              console.warn(`Failed to record inventory for ${product.name}:`, error);
+            }
+          }
+        }
+      });
+    }
+
     // Create calendar event for delivery orders
     if (data.type === 'ORDER' && data.metadata?.delivery?.scheduledDate) {
       calendarService.createDeliveryEvent(order).then(event => {
@@ -464,9 +504,43 @@ class MockInvoissAPI {
     const existing = this.products.get(id);
     if (!existing) throw new Error('Product not found');
 
-    const updated = { ...existing, ...data };
+    const updated = { ...existing, ...data, updatedAt: new Date().toISOString() };
     this.products.set(id, updated);
     return updated;
+  }
+
+  async bulkUpdatePrices(
+    updates: Array<{ id: string; contractorPrice?: number; retailPrice?: number }>
+  ): Promise<{ updated: number; errors: string[] }> {
+    const errors: string[] = [];
+    let updated = 0;
+
+    for (const update of updates) {
+      try {
+        const product = this.products.get(update.id);
+        if (!product) {
+          errors.push(`Product not found: ${update.id}`);
+          continue;
+        }
+
+        const updatedProduct = { ...product, updatedAt: new Date().toISOString() };
+
+        if (update.contractorPrice !== undefined) {
+          updatedProduct.contractorPrice = update.contractorPrice;
+        }
+
+        if (update.retailPrice !== undefined) {
+          updatedProduct.retailPrice = update.retailPrice;
+        }
+
+        this.products.set(update.id, updatedProduct);
+        updated++;
+      } catch (error) {
+        errors.push(`Failed to update ${update.id}: ${error}`);
+      }
+    }
+
+    return { updated, errors };
   }
 
   // Employee Management
