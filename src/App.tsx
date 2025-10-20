@@ -4,6 +4,7 @@ import { Home, Package, Truck, Users, Settings, CreditCard, LogOut, User } from 
 import ClientList from './components/clients/ClientList';
 import OrderList from './components/orders/OrderList';
 import HouseAccountList from './components/accounts/HouseAccountList';
+import DeliveryList from './components/delivery/DeliveryList';
 import EmployeeLoginModal from './components/auth/EmployeeLoginModal';
 import { useAuth } from './contexts/AuthContext';
 
@@ -109,7 +110,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<OrderList />} />
-            <Route path="/deliveries" element={<div>Deliveries Page (Coming Soon)</div>} />
+            <Route path="/deliveries" element={<DeliveryList />} />
             <Route path="/clients" element={<ClientList />} />
             <Route path="/accounts" element={<HouseAccountList />} />
             <Route path="/settings" element={<div>Settings Page (Coming Soon)</div>} />

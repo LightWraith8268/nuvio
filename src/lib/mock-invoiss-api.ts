@@ -388,9 +388,17 @@ class MockInvoissAPI {
   // Employee Management
   async authenticateEmployee(employeeId: string, pin?: string): Promise<Employee | null> {
     const employees = Array.from(this.employees.values());
+    console.log('Available employees:', employees.map(e => ({ id: e.employeeId, name: e.name })));
+    console.log('Looking for employeeId:', employeeId);
+
     const employee = employees.find(e => e.employeeId === employeeId && e.isActive);
 
-    if (!employee) return null;
+    if (!employee) {
+      console.log('Employee not found');
+      return null;
+    }
+
+    console.log('Found employee:', employee.name);
 
     // If employee has a PIN (manager/admin), verify it
     if (employee.pin) {
