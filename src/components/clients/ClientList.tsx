@@ -250,7 +250,7 @@ export default function ClientList() {
   );
 }
 
-function NewClientModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+export function NewClientModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',

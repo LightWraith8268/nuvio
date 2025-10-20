@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Home, Package, Truck, Users, Settings, CreditCard, LogOut, User } from 'lucide-react';
-import ClientList from './components/clients/ClientList';
+import ClientList, { NewClientModal } from './components/clients/ClientList';
 import OrderList from './components/orders/OrderList';
+import NewOrderModal from './components/orders/NewOrderModal';
 import HouseAccountList from './components/accounts/HouseAccountList';
 import DeliveryList from './components/delivery/DeliveryList';
 import EmployeeLoginModal from './components/auth/EmployeeLoginModal';
@@ -122,6 +123,10 @@ function App() {
 }
 
 function Dashboard() {
+  const [showInStoreOrderModal, setShowInStoreOrderModal] = useState(false);
+  const [showDeliveryOrderModal, setShowDeliveryOrderModal] = useState(false);
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
+
   return (
     <div className="px-4 py-6 sm:px-0">
       <h2 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h2>
@@ -215,21 +220,30 @@ function Dashboard() {
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <button className="relative block w-full border-2 border-gray-300 border-dashed rounded-lg p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+          <button
+            onClick={() => setShowInStoreOrderModal(true)}
+            className="relative block w-full border-2 border-gray-300 border-dashed rounded-lg p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          >
             <Package className="mx-auto h-12 w-12 text-gray-400" />
             <span className="mt-2 block text-sm font-medium text-gray-900">
               New In-Store Order
             </span>
           </button>
 
-          <button className="relative block w-full border-2 border-gray-300 border-dashed rounded-lg p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+          <button
+            onClick={() => setShowDeliveryOrderModal(true)}
+            className="relative block w-full border-2 border-gray-300 border-dashed rounded-lg p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          >
             <Truck className="mx-auto h-12 w-12 text-gray-400" />
             <span className="mt-2 block text-sm font-medium text-gray-900">
               New Delivery Order
             </span>
           </button>
 
-          <button className="relative block w-full border-2 border-gray-300 border-dashed rounded-lg p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+          <button
+            onClick={() => setShowNewClientModal(true)}
+            className="relative block w-full border-2 border-gray-300 border-dashed rounded-lg p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          >
             <Users className="mx-auto h-12 w-12 text-gray-400" />
             <span className="mt-2 block text-sm font-medium text-gray-900">
               New Client
@@ -258,6 +272,37 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      {showInStoreOrderModal && (
+        <NewOrderModal
+          onClose={() => setShowInStoreOrderModal(false)}
+          onSuccess={() => {
+            setShowInStoreOrderModal(false);
+            // Optionally navigate to orders page or refresh stats
+          }}
+        />
+      )}
+
+      {showDeliveryOrderModal && (
+        <NewOrderModal
+          onClose={() => setShowDeliveryOrderModal(false)}
+          onSuccess={() => {
+            setShowDeliveryOrderModal(false);
+            // Optionally navigate to orders page or refresh stats
+          }}
+        />
+      )}
+
+      {showNewClientModal && (
+        <NewClientModal
+          onClose={() => setShowNewClientModal(false)}
+          onSuccess={() => {
+            setShowNewClientModal(false);
+            // Optionally navigate to clients page
+          }}
+        />
+      )}
     </div>
   );
 }
