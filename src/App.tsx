@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Home, Package, Truck, Users, Settings, CreditCard, LogOut, User, Box, ArrowRightLeft } from 'lucide-react';
+import { Home, Package, Truck, Users, Settings, CreditCard, LogOut, User, Box, ArrowRightLeft, BarChart3 } from 'lucide-react';
 import ClientList, { NewClientModal } from './components/clients/ClientList';
 import OrderList from './components/orders/OrderList';
 import NewOrderModal from './components/orders/NewOrderModal';
@@ -10,6 +10,7 @@ import DriverView from './components/driver/DriverView';
 import SettingsPage from './components/admin/SettingsPage';
 import ProductList from './components/products/ProductList';
 import TransferList from './components/inventory/TransferList';
+import ReportsPage from './components/reports/ReportsPage';
 import EmployeeLoginModal from './components/auth/EmployeeLoginModal';
 import { useAuth } from './contexts/AuthContext';
 
@@ -93,6 +94,13 @@ function App() {
                     Inventory
                   </Link>
                   <Link
+                    to="/reports"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Reports
+                  </Link>
+                  <Link
                     to="/accounts"
                     className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
                   >
@@ -134,6 +142,7 @@ function App() {
             <Route path="/clients" element={<ClientList />} />
             <Route path="/products" element={<ProductList />} />
             <Route path="/inventory" element={<TransferList />} />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route path="/accounts" element={<HouseAccountList />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
