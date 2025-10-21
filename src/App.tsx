@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Home, Package, Truck, Users, Settings, CreditCard, LogOut, User, Box } from 'lucide-react';
+import { Home, Package, Truck, Users, Settings, CreditCard, LogOut, User, Box, ArrowRightLeft } from 'lucide-react';
 import ClientList, { NewClientModal } from './components/clients/ClientList';
 import OrderList from './components/orders/OrderList';
 import NewOrderModal from './components/orders/NewOrderModal';
@@ -9,6 +9,7 @@ import DeliveryList from './components/delivery/DeliveryList';
 import DriverView from './components/driver/DriverView';
 import SettingsPage from './components/admin/SettingsPage';
 import ProductList from './components/products/ProductList';
+import TransferList from './components/inventory/TransferList';
 import EmployeeLoginModal from './components/auth/EmployeeLoginModal';
 import { useAuth } from './contexts/AuthContext';
 
@@ -85,6 +86,13 @@ function App() {
                     Products
                   </Link>
                   <Link
+                    to="/inventory"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                  >
+                    <ArrowRightLeft className="w-4 h-4 mr-2" />
+                    Inventory
+                  </Link>
+                  <Link
                     to="/accounts"
                     className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
                   >
@@ -125,6 +133,7 @@ function App() {
             <Route path="/driver" element={<DriverView />} />
             <Route path="/clients" element={<ClientList />} />
             <Route path="/products" element={<ProductList />} />
+            <Route path="/inventory" element={<TransferList />} />
             <Route path="/accounts" element={<HouseAccountList />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
