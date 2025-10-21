@@ -216,6 +216,21 @@ class InvoissAPI {
     });
   }
 
+  async bulkUpdatePrices(
+    updates: Array<{ id: string; contractorPrice?: number; retailPrice?: number }>
+  ): Promise<{ updated: number; errors: string[] }> {
+    // For mock mode
+    if (API_MODE === 'mock') {
+      return mockInvoissAPI.bulkUpdatePrices(updates);
+    }
+
+    // For real API (not yet implemented on Invoiss side)
+    return this.fetch('products/bulk-update-prices', {
+      method: 'POST',
+      body: JSON.stringify({ updates }),
+    });
+  }
+
   // Employee Management
   async authenticateEmployee(employeeId: string, pin?: string): Promise<Employee | null> {
     return this.fetch('auth/employee', {

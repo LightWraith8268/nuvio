@@ -11,7 +11,7 @@ interface NewOrderModalProps {
   preselectedClient?: Client; // Optional: skip client selection if provided
 }
 
-type OrderType = 'in-store' | 'delivery';
+type OrderType = 'in-store' | 'delivery' | 'estimate';
 
 interface LineItemInput {
   id: string;
@@ -285,7 +285,7 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
     try {
       const orderData: any = {
         clientId: selectedClient?.id,
-        type: orderType === 'in-store' ? 'INVOICE' : 'ORDER',
+        type: orderType === 'in-store' ? 'INVOICE' : orderType === 'delivery' ? 'ORDER' : 'ESTIMATE',
         lineItems: lineItems.map(item => ({
           description: item.description,
           quantity: item.quantity,
@@ -305,8 +305,8 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
         },
       };
 
-      // Add delivery metadata for delivery orders
-      if (orderType === 'delivery') {
+      // Add delivery metadata for delivery orders and estimates
+      if (orderType === 'delivery' || orderType === 'estimate') {
         orderData.metadata.delivery = {
           scheduledDate: deliveryDate,
           timeSlot: deliveryTimeSlot,
@@ -405,6 +405,22 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
                     <h4 className="text-lg font-medium text-gray-900 mb-2">Delivery Order</h4>
                     <p className="text-sm text-gray-500">
                       Scheduled delivery (ORDER type)
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setOrderType('estimate');
+                    setStep(preselectedClient ? 'items' : 'client');
+                  }}
+                  className="relative block p-8 border-2 border-gray-300 rounded-lg hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <div className="text-center">
+                    <div className="mx-auto h-12 w-12 text-primary mb-4">📝</div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Estimate</h4>
+                    <p className="text-sm text-gray-500">
+                      Quote for future delivery
                     </p>
                   </div>
                 </button>
@@ -948,10 +964,10 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
               <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                 <h4 className="font-medium text-gray-900">Order Summary</h4>
                 <div className="text-sm space-y-1">
-                  <p><span className="text-gray-600">Type:</span> {orderType === 'in-store' ? 'In-Store (INVOICE)' : 'Delivery (ORDER)'}</p>
+                  <p><span className="text-gray-600">Type:</span> {orderType === 'in-store' ? 'In-Store (INVOICE)' : orderType === 'delivery' ? 'Delivery (ORDER)' : 'Estimate (QUOTE)'}</p>
                   <p><span className="text-gray-600">Client:</span> {selectedClient?.name}</p>
                   <p><span className="text-gray-600">Items:</span> {lineItems.length}</p>
-                  {orderType === 'delivery' && (
+                  {(orderType === 'delivery' || orderType === 'estimate') && (
                     <>
                       <p><span className="text-gray-600">Delivery Date:</span> {deliveryDate}</p>
                       <p><span className="text-gray-600">Time Slot:</span> {deliveryTimeSlot}</p>
@@ -965,7 +981,7 @@ export default function NewOrderModal({ onClose, onSuccess, preselectedClient }:
                   <span className="text-gray-600">Subtotal:</span>
                   <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
                 </div>
-                {orderType === 'delivery' && (
+                {(orderType === 'delivery' || orderType === 'estimate') && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Delivery Fee:</span>
                     <span className="font-medium">${deliveryFee.toFixed(2)}</span>

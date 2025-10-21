@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Home, Package, Truck, Users, Settings, CreditCard, LogOut, User, Box, ArrowRightLeft, BarChart3 } from 'lucide-react';
+import { Home, Package, Truck, Users, Settings, CreditCard, LogOut, User, Box, ArrowRightLeft, BarChart3, FileText } from 'lucide-react';
 import ClientList, { NewClientModal } from './components/clients/ClientList';
 import OrderList from './components/orders/OrderList';
 import NewOrderModal from './components/orders/NewOrderModal';
@@ -11,6 +11,7 @@ import SettingsPage from './components/admin/SettingsPage';
 import ProductList from './components/products/ProductList';
 import TransferList from './components/inventory/TransferList';
 import ReportsPage from './components/reports/ReportsPage';
+import EstimateList from './components/estimates/EstimateList';
 import EmployeeLoginModal from './components/auth/EmployeeLoginModal';
 import { useAuth } from './contexts/AuthContext';
 
@@ -71,6 +72,13 @@ function App() {
                   >
                     <Truck className="w-4 h-4 mr-2" />
                     Deliveries
+                  </Link>
+                  <Link
+                    to="/estimates"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Estimates
                   </Link>
                   <Link
                     to="/clients"
@@ -138,6 +146,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<OrderList />} />
             <Route path="/deliveries" element={<DeliveryList />} />
+            <Route path="/estimates" element={<EstimateList />} />
             <Route path="/driver" element={<DriverView />} />
             <Route path="/clients" element={<ClientList />} />
             <Route path="/products" element={<ProductList />} />

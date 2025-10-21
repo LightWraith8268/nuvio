@@ -4,17 +4,54 @@
  * System configuration, API testing, and admin controls
  */
 
-import { useState } from 'react';
-import { Settings, TestTube, Database, Key, Users, Package } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, TestTube, Database, Key, Users, Package, DollarSign } from 'lucide-react';
 import ApiTestPage from './ApiTestPage';
+import PriceBookManagement from './PriceBookManagement';
+import { invoissApi } from '@/lib/invoiss-api';
+import type { Product } from '@/types';
 
-type SettingsTab = 'general' | 'api-test' | 'database' | 'employees';
+type SettingsTab = 'general' | 'api-test' | 'database' | 'employees' | 'price-books';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load products when price-books tab is active
+  useEffect(() => {
+    if (activeTab === 'price-books') {
+      loadProducts();
+    }
+  }, [activeTab]);
+
+  const loadProducts = async () => {
+    setLoading(true);
+    try {
+      const productList = await invoissApi.listProducts();
+      setProducts(productList);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProduct = async (productId: string, updates: Partial<Product>) => {
+    await invoissApi.updateProduct(productId, updates);
+    await loadProducts(); // Reload products
+  };
+
+  const handleBulkUpdatePrices = async (
+    updates: Array<{ id: string; contractorPrice?: number; retailPrice?: number }>
+  ) => {
+    await invoissApi.bulkUpdatePrices(updates);
+    await loadProducts(); // Reload products
+  };
 
   const tabs = [
     { id: 'general' as SettingsTab, label: 'General', icon: Settings },
+    { id: 'price-books' as SettingsTab, label: 'Price Books', icon: DollarSign },
     { id: 'api-test' as SettingsTab, label: 'API Testing', icon: TestTube },
     { id: 'database' as SettingsTab, label: 'Database', icon: Database },
     { id: 'employees' as SettingsTab, label: 'Employees', icon: Users },
@@ -66,6 +103,19 @@ export default function SettingsPage() {
       {/* Tab Content */}
       <div>
         {activeTab === 'general' && <GeneralSettings />}
+        {activeTab === 'price-books' && (
+          loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-gray-500">Loading products...</div>
+            </div>
+          ) : (
+            <PriceBookManagement
+              products={products}
+              onUpdateProduct={handleUpdateProduct}
+              onBulkUpdatePrices={handleBulkUpdatePrices}
+            />
+          )
+        )}
         {activeTab === 'api-test' && <ApiTestPage />}
         {activeTab === 'database' && <DatabaseSettings />}
         {activeTab === 'employees' && <EmployeeSettings />}
