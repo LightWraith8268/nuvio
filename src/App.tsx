@@ -42,9 +42,9 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Navigation */}
-        <nav className="bg-white shadow-sm border-b">
+        <nav className="bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex">
@@ -54,63 +54,63 @@ function App() {
                 <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                   <Link
                     to="/"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 dark:text-gray-100"
                   >
                     <Home className="w-4 h-4 mr-2" />
                     Dashboard
                   </Link>
                   <Link
                     to="/orders"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
                     <Package className="w-4 h-4 mr-2" />
                     Orders
                   </Link>
                   <Link
                     to="/deliveries"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
                     <Truck className="w-4 h-4 mr-2" />
                     Deliveries
                   </Link>
                   <Link
                     to="/estimates"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     Estimates
                   </Link>
                   <Link
                     to="/clients"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
                     <Users className="w-4 h-4 mr-2" />
                     Clients
                   </Link>
                   <Link
                     to="/products"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
                     <Box className="w-4 h-4 mr-2" />
                     Products
                   </Link>
                   <Link
                     to="/inventory"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
                     <ArrowRightLeft className="w-4 h-4 mr-2" />
                     Inventory
                   </Link>
                   <Link
                     to="/reports"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
                     <BarChart3 className="w-4 h-4 mr-2" />
                     Reports
                   </Link>
                   <Link
                     to="/accounts"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
                     <CreditCard className="w-4 h-4 mr-2" />
                     Accounts

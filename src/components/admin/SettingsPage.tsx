@@ -5,10 +5,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Settings, TestTube, Database, Key, Users, Package, DollarSign } from 'lucide-react';
+import { Settings, TestTube, Database, Key, Users, Package, DollarSign, Moon, Sun, Monitor } from 'lucide-react';
 import ApiTestPage from './ApiTestPage';
 import PriceBookManagement from './PriceBookManagement';
 import { invoissApi } from '@/lib/invoiss-api';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Product } from '@/types';
 
 type SettingsTab = 'general' | 'api-test' | 'database' | 'employees' | 'price-books';
@@ -128,11 +129,80 @@ function GeneralSettings() {
   const apiMode = import.meta.env.VITE_API_MODE || 'mock';
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const hasInvoissKey = !!import.meta.env.VITE_INVOISS_API_KEY;
+  const { theme, setTheme } = useTheme();
 
   return (
     <div className="space-y-6">
+      {/* Theme Settings */}
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+        <div className="flex items-center mb-4">
+          <Moon className="h-5 w-5 text-gray-400 mr-2" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Theme</h3>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Choose your theme preference
+            </label>
+            <div className="grid grid-cols-3 gap-4">
+              <button
+                onClick={() => setTheme('light')}
+                className={`
+                  flex flex-col items-center p-4 border-2 rounded-lg transition-all
+                  ${theme === 'light'
+                    ? 'border-primary bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }
+                `}
+              >
+                <Sun className="w-8 h-8 mb-2 text-yellow-500" />
+                <span className="font-medium text-gray-900 dark:text-white">Light</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bright theme</span>
+              </button>
+
+              <button
+                onClick={() => setTheme('dark')}
+                className={`
+                  flex flex-col items-center p-4 border-2 rounded-lg transition-all
+                  ${theme === 'dark'
+                    ? 'border-primary bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }
+                `}
+              >
+                <Moon className="w-8 h-8 mb-2 text-blue-500" />
+                <span className="font-medium text-gray-900 dark:text-white">Dark</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Dark theme</span>
+              </button>
+
+              <button
+                onClick={() => setTheme('system')}
+                className={`
+                  flex flex-col items-center p-4 border-2 rounded-lg transition-all
+                  ${theme === 'system'
+                    ? 'border-primary bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }
+                `}
+              >
+                <Monitor className="w-8 h-8 mb-2 text-gray-500" />
+                <span className="font-medium text-gray-900 dark:text-white">System</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Match system</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Your theme preference is saved locally and will persist across sessions.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* API Configuration */}
-      <div className="bg-white shadow-sm rounded-lg p-6">
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
         <div className="flex items-center mb-4">
           <Key className="h-5 w-5 text-gray-400 mr-2" />
           <h3 className="text-lg font-semibold text-gray-900">API Configuration</h3>
